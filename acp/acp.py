@@ -4,9 +4,13 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import plotly.express as px
+import joblib
 
-# 1. Chargement des données
-df = pd.read_csv("../data/processed/user_profiles_with_scores.csv", dtype={"user_id": str})
+# 1. Chargement des données 
+df = pd.read_csv(
+    "data/processed/user_profiles_with_scores.csv",
+    dtype={"user_id": str}
+)
 
 # 2. Sélection des features
 FEATURES = [
@@ -30,6 +34,18 @@ X_scaled = scaler.fit_transform(X)
 pca = PCA(n_components=3)
 X_pca_full = pca.fit_transform(X_scaled)
 print("Variance expliquée (PC1–3) :", pca.explained_variance_ratio_)
+
+# 4.b. Récupérer les poids des features pour chaque composante
+pca_components = pd.DataFrame(
+    pca.components_,
+    columns=FEATURES,
+    index=["PC1", "PC2", "PC3"]
+).T
+
+# Affichage des contributions triées par importance pour chaque PC
+for pc in pca_components.columns:
+    print(f"\nTop features pour {pc} :")
+    print(pca_components[pc].abs().sort_values(ascending=False).head(5))
 
 # 5. Préparation et export du nuage 3D
 export_df = pd.DataFrame({
@@ -77,10 +93,13 @@ gd.on('plotly_click', function(data) {
 """
 
 # 7. Export final
-html_path = "visualisation/acp_vizualisation.html"
+html_path = "visualisations/acp_vizualisation.html"
 fig.write_html(
     html_path,
     include_plotlyjs="cdn",
     post_script=post_script
 )
-print(f"Exporté dans : {html_path}")
+
+joblib.dump(pca, "models/pca_3d.joblib")
+joblib.dump(scaler, "models/scaler.joblib")
+print("PCA et scaler sauvegardés.")
