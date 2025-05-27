@@ -6,12 +6,14 @@ from plotly.subplots import make_subplots
 import plotly.graph_objs as go
 import joblib
 
-# 1. Chargement des données
+# Définition du chemin racine du projet
 root = Path(__file__).resolve().parent.parent
+
+# Chargement des données utilisateurs enrichies de scores
 csv_path = root / "data" / "processed" / "user_profiles_with_scores.csv"
 df = pd.read_csv(csv_path, dtype={"user_id": str}).fillna(0)
 
-# 2. Sélection des features pour la PCA
+# Liste des variables utilisées pour la PCA
 FEATURES = [
     "mean_text_length", "mean_text_upper_ratio", "mean_text_exclam_ratio",
     "mean_nb_hashtags", "mean_nb_mentions", "mean_is_retweet",
@@ -24,14 +26,14 @@ FEATURES = [
 ]
 X = df[FEATURES]
 
-# 3. Standardisation + PCA
+# Standardisation des données et réduction de dimension à 3 composantes
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 pca = PCA(n_components=3)
 X_pca = pca.fit_transform(X_scaled)
 print("Variance expliquée (PC1–3) :", pca.explained_variance_ratio_)
 
-# 4. Préparation des couleurs et ordre des catégories
+# Définition des catégories de type et couleurs associées
 type_order = ["normal", "bot", "spam", "influenceur", "media", "spam_star", "atypique_generique"]
 color_map = {
     "normal": "#2ecc71",
@@ -42,17 +44,27 @@ color_map = {
     "spam_star": "#c0392b",
     "atypique_generique": "#9b59b6"
 }
-
 df['final_type'] = df['final_type'].astype(pd.CategoricalDtype(type_order, ordered=True))
 
-# 5. Comptage et pourcentages
+# Définition des groupes pour affichage groupé
+group_normal = ["normal", "influenceur"]
+group_atypique = ["bot", "spam", "media", "spam_star", "atypique_generique"]
+group_colors = {"normal": "#2ecc71", "atypique": "#e74c3c"}
+
+# Comptage des types (individuels et groupés) + calcul des pourcentages
 counts = df['final_type'].value_counts().reindex(type_order).fillna(0)
 percentages = (counts / counts.sum() * 100).round(1)
 
+grouped_counts = {
+    "normal": counts[group_normal].sum(),
+    "atypique": counts[group_atypique].sum()
+}
+grouped_percentages = {
+    k: round((v / sum(grouped_counts.values())) * 100, 1)
+    for k, v in grouped_counts.items()
+}
 
-
-
-# 6. Création d'une figure en deux sous-plots (3D + bar)
+# Création de la figure Plotly avec 2 sous-graphes (3D et histogramme)
 fig = make_subplots(
     rows=2, cols=1,
     specs=[[{"type": "scene"}], [{"type": "xy"}]],
@@ -61,8 +73,7 @@ fig = make_subplots(
     subplot_titles=("ACP 3D des profils Twitter", "Répartition des types (%)")
 )
 
-
-# 6a. Scatter 3D par type
+# Traces 3D pour chaque type individuel
 for t in type_order:
     mask = df['final_type'] == t
     fig.add_trace(
@@ -76,7 +87,34 @@ for t in type_order:
         row=1, col=1
     )
 
-# 6b. Diagramme en barres
+# Traces 3D pour les deux groupes agrégés (cachées par défaut)
+mask_normal = df['final_type'].isin(group_normal)
+fig.add_trace(
+    go.Scatter3d(
+        x=X_pca[mask_normal, 0], y=X_pca[mask_normal, 1], z=X_pca[mask_normal, 2],
+        mode='markers',
+        name="normal (groupé)",
+        marker=dict(size=4, color=group_colors["normal"], opacity=0.8, line=dict(width=0)),
+        visible=False,
+        customdata=df.loc[mask_normal, 'user_id']
+    ),
+    row=1, col=1
+)
+
+mask_atypique = df['final_type'].isin(group_atypique)
+fig.add_trace(
+    go.Scatter3d(
+        x=X_pca[mask_atypique, 0], y=X_pca[mask_atypique, 1], z=X_pca[mask_atypique, 2],
+        mode='markers',
+        name="atypique (groupé)",
+        marker=dict(size=4, color=group_colors["atypique"], opacity=0.8, line=dict(width=0)),
+        visible=False,
+        customdata=df.loc[mask_atypique, 'user_id']
+    ),
+    row=1, col=1
+)
+
+# Histogramme par type individuel (affiché par défaut)
 fig.add_trace(
     go.Bar(
         x=type_order,
@@ -84,12 +122,28 @@ fig.add_trace(
         marker_color=[color_map[t] for t in type_order],
         text=[f"{v}%" for v in percentages.values],
         textposition='outside',
-        showlegend=False
+        showlegend=False,
+        name="Répartition types (séparés)"
     ),
     row=2, col=1
 )
 
-# 7. Annotation du total de comptes affichés
+# Histogramme groupé (normal / atypique), caché par défaut
+fig.add_trace(
+    go.Bar(
+        x=["normal", "atypique"],
+        y=[grouped_percentages["normal"], grouped_percentages["atypique"]],
+        marker_color=[group_colors["normal"], group_colors["atypique"]],
+        text=[f"{grouped_percentages['normal']}%", f"{grouped_percentages['atypique']}%"],
+        textposition='outside',
+        showlegend=False,
+        name="Répartition types (groupé)",
+        visible=False
+    ),
+    row=2, col=1
+)
+
+# Affichage du nombre total de comptes analysés
 fig.add_annotation(
     text=f"Total comptes affichés : {len(df)}",
     xref='paper', yref='paper',
@@ -98,7 +152,41 @@ fig.add_annotation(
     font=dict(size=14)
 )
 
-# 8. Layout et export
+# Boutons d'interaction pour basculer entre vue groupée et détaillée
+n_types = len(type_order)
+trace_grouped_3d = [False]*n_types + [True, True]
+trace_individual_3d = [True]*n_types + [False, False]
+bar_individual = [True, False]
+bar_grouped = [False, True]
+
+fig.update_layout(
+    updatemenus=[
+        dict(
+            type="buttons",
+            direction="left",
+            buttons=[
+                dict(
+                    label="Afficher tous les types",
+                    method="update",
+                    args=[{"visible": trace_individual_3d + bar_individual}]
+                ),
+                dict(
+                    label="Afficher types groupés (normal / atypique)",
+                    method="update",
+                    args=[{"visible": trace_grouped_3d + bar_grouped}]
+                )
+            ],
+            pad={"r": 10, "t": 10},
+            showactive=True,
+            x=0.5,
+            xanchor="center",
+            y=1.1,
+            yanchor="top"
+        )
+    ]
+)
+
+# Configuration finale du layout
 fig.update_layout(
     height=1000,
     margin=dict(l=0, r=0, t=60, b=0),
@@ -108,6 +196,7 @@ fig.update_scenes(
     xaxis_title='PC1', yaxis_title='PC2', zaxis_title='PC3'
 )
 
+# Export du graphique interactif en HTML
 output_path = root / "visualisations" / "acp_visualisation.html"
 output_path.parent.mkdir(parents=True, exist_ok=True)
 fig.write_html(
@@ -115,10 +204,11 @@ fig.write_html(
     include_plotlyjs='cdn'
 )
 
-# 9. Sauvegarde des objets PCA et scaler
+# Sauvegarde des modèles PCA et scaler pour réutilisation ultérieure
 models_dir = root / "models"
 models_dir.mkdir(parents=True, exist_ok=True)
 joblib.dump(pca, models_dir / "pca_3d.joblib")
 joblib.dump(scaler, models_dir / "scaler.joblib")
+
 print(f"✅ Visualisation exportée dans : {output_path}")
 print(f"✅ PCA et scaler sauvegardés dans : {models_dir}")
