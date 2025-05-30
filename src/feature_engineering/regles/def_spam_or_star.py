@@ -3,8 +3,8 @@ import pandas as pd
 
 def compute_spam_and_influencer_flags(
     df,
-    high_followers=50000,
-    low_statuses=200,
+    high_followers=20000,
+    low_statuses=500,
     new_account_days=180,
     min_engagement_rate=0.005
 ):
@@ -46,6 +46,6 @@ def compute_spam_and_influencer_flags(
         (df['user.followers_count'] > high_followers)
         & (df['user.statuses_count']   < low_statuses)
         & cond_new_account
-        & (~cond_influencer)
+        & (cond_influencer)
     )
     return cond_influencer.astype(int), cond_star_spammer.astype(int)

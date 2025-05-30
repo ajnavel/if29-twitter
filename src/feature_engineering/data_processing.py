@@ -18,7 +18,7 @@ from regles.def_type import def_type_tweet, def_type_user
 MONGO_URI = "mongodb://localhost:27017/"
 DB_NAME = "twitterdb"
 COLLECTION = "tweets"
-LIMIT = 60000
+LIMIT = 0
 
 
 ###########################
@@ -198,7 +198,7 @@ seuil_pct = (seuil_raw / max_score) * 100
 df["label"] = (df["score_atypique"] >= seuil_pct).astype(int)
 
 # Application de la classification
-df["type"] = df.apply(def_type_tweet, axis=1)
+df["type"] = df.apply(lambda row: def_type_tweet(row, seuil_pct), axis=1)
 
 # Renommer la colonne d'ID utilisateur pour plus de clarté
 df = df.rename(columns={"user.id_str": "user_id"})

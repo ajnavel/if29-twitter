@@ -14,10 +14,10 @@ def def_type_tweet(row, seuil_pct):
         return "normal"
 
     # 2) Overrides influenceur / star_spammer
-    if row.get("cond_influencer", 0) == 1:
-        return "influenceur"
-    if row.get("cond_star_spammer", 0) == 1:
-        return "spam_star"
+    if row.get('cond_star_spammer', 0) == 1:
+        return 'spam_star'
+    if row.get('cond_influencer', 0) == 1:
+        return 'influenceur'
 
     # 3) Détection bots vs spammeurs
     is_bot = (
