@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 # --- Chargement des modèles ---
 scaler = joblib.load("models/scaler.joblib")
 pca = joblib.load("models/pca.joblib")
-kmeans = joblib.load("models/kmeans_from_agglo.pkl")
+kmeans = joblib.load("models/kmeans.joblib")
 
 # --- Chargement des nouvelles données (A CHANGER ABSOLUMENT JE TEST JUSTE AVCE CE QU'ON A) ---
 new_df = pd.read_csv("data/processed/user_profiles_with_scores.csv", dtype={"user_id": str})
