@@ -156,13 +156,14 @@ print(f"\nAdjusted Rand Index (ARI) : {ari:.3f}")
 
 joblib.dump(scaler, "models/scaler.joblib")
 joblib.dump(pca, "models/pca.joblib")
-print("Scaler et PCA sauvegardés.")
+joblib.dump(kmeans, "models/kmeans.joblib")
+print("Modèle, Scaler et PCA sauvegardés.")
 
 # 12. Barplot clusters
 sns.set(style="whitegrid")
 plt.figure(figsize=(8, 5))
 cluster_counts = df['cluster'].value_counts().sort_index()
-sns.barplot(x=cluster_counts.index, y=cluster_counts.values, palette="Set2")
+sns.barplot(x=cluster_counts.index, y=cluster_counts.values, hue=cluster_counts.index, palette="Set2", legend=False)
 plt.xlabel("Cluster")
 plt.ylabel("Nombre d'individus")
 plt.title("Répartition du nombre d'individus par cluster")
